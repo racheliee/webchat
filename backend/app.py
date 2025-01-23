@@ -1,64 +1,79 @@
-import asyncio
-from aiohttp import web
-import aioredis
 import os
+import aiohttp
+from aiohttp import web
+import asyncio
+from dotenv import load_dotenv
+import aioredis
 
-# Load environment variables with default values
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost')
-APP_PORT = int(os.getenv('APP_PORT', 8080))
+# Load environment variables
+load_dotenv()
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+FRONTEND_URL = "http://localhost:3000"
+REDIS_URL = "redis://localhost"
 
+routes = web.RouteTableDef()
 
-# WebSocket handler for client connections
-async def websocket_handler(request):
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
-
-    # Create a Redis connection
-    redis = aioredis.from_url(REDIS_URL)
-    pubsub = redis.pubsub()
-    await pubsub.subscribe('chat')
-
-    # Asynchronous function to read messages from Redis and send to WebSocket
-    async def reader(pubsub):
-        async for message in pubsub.listen():
-            if message['type'] == 'message':
-                await ws.send_str(message['data'].decode())
-
-    # Start reading messages from the Redis channel
-    asyncio.create_task(reader(pubsub))
-
-    try:
-        # Handle incoming WebSocket messages and publish them to Redis
-        async for msg in ws:
-            if msg.type == web.WSMsgType.TEXT:
-                await redis.publish('chat', msg.data)
-    finally:
-        # Cleanup Redis resources when the WebSocket is closed
-        await pubsub.unsubscribe('chat')
-        await redis.close()
-
-    return ws
+# Redis connection (global for simplicity)
+redis = None
 
 
-# Cleanup handler to close Redis connection on app shutdown
-async def cleanup(app):
-    if 'redis' in app:
-        await app['redis'].close()
+@routes.get("/auth/github")
+async def github_login(request):
+    # Redirect to GitHub's OAuth authorization page
+    github_auth_url = (
+        f"https://github.com/login/oauth/authorize?"
+        f"client_id={GITHUB_CLIENT_ID}&redirect_uri=http://localhost:8080/auth/github/callback&scope=read:user user:email"
+    )
+    return web.HTTPFound(github_auth_url)
 
 
-# Create Redis connection on app startup
-async def create_redis_connection(app):
-    app['redis'] = aioredis.from_url(REDIS_URL)
+@routes.get("/auth/github/callback")
+async def github_callback(request):
+    code = request.query.get("code")
+    if not code:
+        return web.HTTPBadRequest(reason="Missing code parameter")
+
+    async with aiohttp.ClientSession() as session:
+        # Exchange code for access token
+        token_url = "https://github.com/login/oauth/access_token"
+        token_data = {
+            "client_id": GITHUB_CLIENT_ID,
+            "client_secret": GITHUB_CLIENT_SECRET,
+            "code": code,
+        }
+        token_headers = {"Accept": "application/json"}
+        async with session.post(token_url, json=token_data, headers=token_headers) as resp:
+            token_json = await resp.json()
+            access_token = token_json.get("access_token")
+            if not access_token:
+                return web.HTTPBadRequest(reason="Failed to fetch access token")
+
+        # Fetch user info
+        user_url = "https://api.github.com/user"
+        user_headers = {"Authorization": f"Bearer {access_token}"}
+        async with session.get(user_url, headers=user_headers) as user_resp:
+            user_data = await user_resp.json()
+
+        # Redirect to /chat on frontend
+        return web.HTTPFound(f"http://localhost:3001/chat")
 
 
-# Create the Aiohttp web application
+async def redis_init(app):
+    global redis
+    redis = await aioredis.from_url(REDIS_URL)
+    app["redis"] = redis
+
+
+async def redis_cleanup(app):
+    redis.close()
+    await redis.wait_closed()
+
+
 app = web.Application()
-# Add startup and cleanup tasks
-app.on_startup.append(create_redis_connection)
-app.on_cleanup.append(cleanup)
-# Add WebSocket route
-app.router.add_get('/ws', websocket_handler)
+app.add_routes(routes)
+app.on_startup.append(redis_init)
+app.on_cleanup.append(redis_cleanup)
 
-# Run the application
-if __name__ == '__main__':
-    web.run_app(app, host='0.0.0.0', port=APP_PORT)
+if __name__ == "__main__":
+    web.run_app(app, host="0.0.0.0", port=8080)
