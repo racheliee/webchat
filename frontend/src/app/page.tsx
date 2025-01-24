@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 
 export default function Home() {
   const handleGithubLogin = () => {
@@ -13,7 +12,7 @@ export default function Home() {
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
         <div className="flex flex-col gap-4 items-center">
-          <h1 className="text-4xl font-bold text-center">Welcome to Rachel's Chatting Session</h1>
+          <h1 className="text-4xl font-bold text-center">Welcome to Rachel&apos;s Chatting Session</h1>
           <div className="flex flex-row gap-2">
           <Image
               src="/user.svg"
@@ -55,7 +54,7 @@ export default function Home() {
             width={16}
             height={16}
           />
-          See Rachel's Github
+          See Rachel&apos;s Github
         </a>
       </footer>
     </div>

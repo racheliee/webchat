@@ -1,4 +1,4 @@
-name: Docker Vue Image CI/CD
+name: Docker Frontend Image CI/CD
 
 on:
   push:
