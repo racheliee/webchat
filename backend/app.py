@@ -56,7 +56,7 @@ async def github_callback(request):
             user_data = await user_resp.json()
 
         # Redirect to /chat on frontend
-        return web.HTTPFound(f"http://localhost:3001/chat")
+        return web.HTTPFound(f"http://localhost:3000/chat")
 
 
 async def redis_init(app):
