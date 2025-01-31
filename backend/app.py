@@ -12,6 +12,7 @@ import signal
 from aiohttp_session import setup, get_session, session_middleware
 from aiohttp_session.redis_storage import RedisStorage
 import redis.asyncio as redis
+import aiohttp_cors
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +26,7 @@ POSTGRES_URL = os.getenv("POSTGRES_URL")
 routes = web.RouteTableDef()
 connections = set()
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # GitHub Authentication =================================================================================================
@@ -67,6 +69,7 @@ async def github_callback(request):
                     return web.HTTPBadRequest(reason="Failed to fetch access token")
                 token_json = await resp.json()
                 access_token = token_json.get("access_token")
+                logger.info(f"Access token: {access_token}")
                 if not access_token:
                     return web.HTTPBadRequest(reason="Failed to fetch access token")
 
@@ -90,6 +93,21 @@ async def github_callback(request):
         except aiohttp.ClientError as e:
             logger.error(f"Network error during GitHub OAuth: {e}")
             return web.HTTPInternalServerError(reason="Network error during GitHub OAuth")
+
+@routes.get("/auth/session")
+async def get_session_data(request):
+    session = await get_session(request)
+    user_data = session.get("user_data")
+
+    if user_data:
+        logger.info(f"Authenticated user: {user_data['login']}")
+        return web.json_response({
+            "username": user_data["login"],
+            "avatar": user_data["avatar_url"],
+            "github_url": user_data["html_url"],
+        })
+    else:
+        return web.json_response({"error": "Not authenticated"}, status=401)
 
 
 # WebSocket Handler for Chat ===========================================================================================
@@ -196,6 +214,17 @@ def create_app():
     # redis_client = redis.from_url(REDIS_URL)
     # storage = RedisStorage(redis_client)
 
+    # set up cors
+    cors = aiohttp_cors.setup(app, defaults={
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+        )
+    })
+    
+    for route in list(app.router.routes()):
+        cors.add(route)
     
     async def on_shutdown(app):
         # Close all WebSocket connections
