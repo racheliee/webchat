@@ -218,7 +218,7 @@ async def setup_redis(app):
 async def cleanup_redis(app):
     redis_client = app["redis"]
     if redis_client:
-        await redis_client.close()
+        await redis_client.aclose()
 
 
 async def connect_redis():
