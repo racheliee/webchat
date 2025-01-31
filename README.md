@@ -33,4 +33,10 @@ Running the backend:
 ```bash
 cd backend
 python app.py
+
+# for dev mode
+adev runserver app.py --host 0.0.0.0 --port 8080
 ```
+
+## Deployment
+This webchat is deployed through Amazon Web Services (AWS). It currently does not have a domain name, but you can access it through the [following link](http://15.164.93.98:3000/)
