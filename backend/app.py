@@ -3,7 +3,6 @@ import aiohttp
 from aiohttp import web
 import asyncio
 from dotenv import load_dotenv
-import aioredis
 import secrets
 import json
 import asyncpg
