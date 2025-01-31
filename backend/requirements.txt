@@ -1,5 +1,6 @@
 aiohappyeyeballs==2.4.4
 aiohttp==3.11.11
+aiohttp-cors==0.7.0
 aiohttp-devtools==1.1.2
 aiohttp-session==2.12.1
 aioredis==2.0.1

@@ -1,3 +1,4 @@
+import uuid
 import os
 import aiohttp
 from aiohttp import web
@@ -17,7 +18,7 @@ import aiohttp_cors
 load_dotenv()
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
-GITHUB_REDIRECT_URI = os.getenv("GITHUB_REDIRECT_URI")
+HOST = os.getenv("HOST")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 REDIS_URL = os.getenv("REDIS_URL")
 POSTGRES_URL = os.getenv("POSTGRES_URL")
@@ -36,7 +37,7 @@ async def github_login(request):
     session["oauth_state"] = state  # Store state in session
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?"
-        f"client_id={GITHUB_CLIENT_ID}&redirect_uri={GITHUB_REDIRECT_URI}&scope=read:user user:email&state={state}"
+        f"client_id={GITHUB_CLIENT_ID}&redirect_uri={HOST}/auth/github/callback&scope=read:user user:email&state={state}"
     )
     return web.HTTPFound(github_auth_url)
 
@@ -81,7 +82,7 @@ async def github_callback(request):
                     return web.HTTPBadRequest(reason="Failed to fetch user data")
                 user_data = await user_resp.json()
 
-            logger.info(f"User data: {user_data}")
+            # logger.info(f"User data: {user_data}")
 
             # Store user data in session
             session["user_data"] = user_data
@@ -107,7 +108,17 @@ async def get_session_data(request):
         })
     else:
         return web.json_response({"error": "Not authenticated"}, status=401)
-
+    
+@routes.get("/auth/signout")
+async def signout(request):
+    session = await get_session(request)
+    session.clear()
+    
+    redis_client = request.app["redis"]
+    session_id = session.identity
+    await redis_client.delete(f"AIOHTTP_SESSION:{session_id}")
+    
+    return web.HTTPFound(f"{FRONTEND_URL}/")
 
 # WebSocket Handler for Chat ===========================================================================================
 @routes.get("/ws")
@@ -140,13 +151,18 @@ async def websocket_handler(request):
 
                 # Save message to PostgreSQL
                 async with pg_pool.acquire() as conn:
+                    data = json.loads(msg.data)
+                    data["id"] = str(uuid.uuid4())
+                    
                     await conn.execute(
                         """
-                        INSERT INTO messages (username, avatar, body, created_at)
-                        VALUES ($1, $2, $3, NOW())
+                        INSERT INTO messages (id, username, avatar, github_url, body, created_at)
+                        VALUES ($1, $2, $3, $4, $5, NOW())
                         """,
+                        data["id"],
                         data["username"],
-                        data.get("avatar"),
+                        data.get("avatar", None),
+                        data.get("github_url", None),
                         data["body"],
                     )
 
@@ -174,6 +190,24 @@ async def get_messages(request):
         return web.json_response([dict(row) for row in rows])
 
 
+# Database Setup =======================================================================================================
+async def init_db():
+    conn = await asyncpg.connect(POSTGRES_URL)
+    await conn.execute("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS messages (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            username TEXT NOT NULL,
+            avatar TEXT,
+            github_url TEXT,
+            body TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+    )
+    await conn.close()
+
 # Redis Setup ==========================================================================================================
 async def setup_redis(app):
     # app["redis"] = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
@@ -192,6 +226,7 @@ async def connect_redis():
 
 # PostgreSQL Setup =====================================================================================================
 async def setup_postgres(app):
+    await init_db()
     app["pg_pool"] = await asyncpg.create_pool(POSTGRES_URL)
 
 
@@ -199,8 +234,19 @@ async def cleanup_postgres(app):
     pg_pool = app["pg_pool"]
     await pg_pool.close()
 
+# shutdown function ====================================================================================================
+async def shutdown(signal, loop):
+    """Cleanup tasks tied to the service's shutdown."""
+    logging.info(f"Received exit signal {signal.name}...")
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
 
-# Application Setup
+    [task.cancel() for task in tasks]
+
+    logging.info("Cancelling outstanding tasks")
+    await asyncio.gather(*tasks, return_exceptions=True)
+    loop.stop()
+
+# Application Setup ====================================================================================================
 def create_app():
     app = web.Application()
     app.add_routes(routes)
@@ -208,10 +254,6 @@ def create_app():
     app.on_cleanup.append(cleanup_redis)
     app.on_startup.append(setup_postgres)
     app.on_cleanup.append(cleanup_postgres)
-   
-    # Set up Redis storage for sessions
-    # redis_client = redis.from_url(REDIS_URL)
-    # storage = RedisStorage(redis_client)
 
     # set up cors
     cors = aiohttp_cors.setup(app, defaults={
@@ -231,22 +273,8 @@ def create_app():
             await ws.close(code=1001, message="Server shutdown")
 
     app.on_shutdown.append(on_shutdown)
-    
-    # setup(app, storage)
 
     return app
-
-
-async def shutdown(signal, loop):
-    """Cleanup tasks tied to the service's shutdown."""
-    logging.info(f"Received exit signal {signal.name}...")
-    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-
-    [task.cancel() for task in tasks]
-
-    logging.info("Cancelling outstanding tasks")
-    await asyncio.gather(*tasks, return_exceptions=True)
-    loop.stop()
 
 
 if __name__ == "__main__":

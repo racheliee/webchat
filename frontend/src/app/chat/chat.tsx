@@ -126,10 +126,19 @@ export const Chat = () => {
     }
   };
 
+  const handleSignOut = () => {
+    window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/auth/signout`;
+  }
+
   return (
     <div className="h-screen w-full flex flex-col bg-white">
+      <header className="flex items-center justify-between p-4 border-b">
+        <h1 className="text-2xl font-bold">Chat Room ꒰ᐢ. .ᐢ꒱₊˚⊹</h1>
+        <button onClick={handleSignOut} className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800">Sign Out</button>
+      </header>
+
       {/* Chat Messages */}
-      <div className="flex-1 w-full overflow-y-auto p-4 pb-20">
+      <div className="flex-1 w-full overflow-y-auto p-4 pb-28">
         <div className="flex flex-col w-full flex-grow">
           {messages.map((message) => (
             <MessageComponent
@@ -158,13 +167,19 @@ export const Chat = () => {
                 150
               )}px`;
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(e);
+              }
+            }}
             placeholder="Type your message..."
             className="flex-1 p-2 border rounded-lg outline-none focus:ring-2 focus:ring-gray-700 resize-none overflow-auto"
             style={{ minHeight: "40px", maxHeight: "150px" }}
           />
           <button
             type="submit"
-            className="ml-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+            className="ml-4 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
           >
             Send
           </button>
@@ -211,8 +226,8 @@ const MessageComponent = ({ message, isCurrentUser }: MessageProps) => (
       <span
         className={`flex-grow rounded-md mx-2 p-3 break-all whitespace-pre-wrap max-w-[300px] sm:max-w-[500px] md:max-w-[700px] ${
           isCurrentUser
-            ? "bg-[#363739] justify-start text-[#FAF9F6] border-[#FAF9F6] border-1"
-            : "bg-[#FAF9F6] justify-end text-[#363739] border"
+            ? "bg-gray-900 justify-start text-[#FAF9F6] border-[#FAF9F6] border-1"
+            : "bg-[#FAF9F6] justify-end text-gray-900 border"
         }`}
       >
         {message.body}
