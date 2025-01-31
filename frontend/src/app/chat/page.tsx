@@ -1,5 +1,7 @@
-export default function Chat(){
-    return (
-        <p> in progress </p>
-    )
+"use client";
+
+import {Chat} from "./chat";
+
+export default function ChatPage() {
+    return <Chat />;
 }
