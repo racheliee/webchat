@@ -194,9 +194,9 @@ interface MessageProps {
   isCurrentUser: boolean;
 }
 
-const loaderProp = ({ src }: { src: string }) => {
-  return src;
-}
+// const loaderProp = ({ src }: { src: string }) => {
+//   return src;
+// }
 
 const MessageComponent = ({ message, isCurrentUser }: MessageProps) => (
   <div
@@ -218,7 +218,7 @@ const MessageComponent = ({ message, isCurrentUser }: MessageProps) => (
             src={message.avatar}
             alt={message.username}
             className="rounded-full"
-            loader={loaderProp}
+            // loader={loaderProp}
           />
         </a>
       </div>
