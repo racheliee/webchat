@@ -184,9 +184,33 @@ async def websocket_handler(request):
 @routes.get("/api/messages")
 async def get_messages(request):
     pg_pool = request.app["pg_pool"]
+
+    # Default values for pagination
+    limit = int(request.query.get("limit", 20))  # Default limit to 20
+    page = int(request.query.get("page", 1))  # Default to page 1
+
+    # Calculate the offset
+    offset = (page - 1) * limit
+
     async with pg_pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM messages ORDER BY created_at ASC")
-        return web.json_response([dict(row) for row in rows])
+        # Fetch paginated messages
+        rows = await conn.fetch(
+            "SELECT * FROM messages ORDER BY created_at ASC LIMIT $1 OFFSET $2",
+            limit, offset
+        )
+
+        # Fetch the total count for additional metadata (optional)
+        total_count = await conn.fetchval("SELECT COUNT(*) FROM messages")
+
+        return web.json_response({
+            "data": [dict(row) for row in rows],
+            "meta": {
+                "page": page,
+                "limit": limit,
+                "total_count": total_count,
+                "total_pages": (total_count + limit - 1) // limit  # Calculate total pages
+            }
+        })
 
 
 # Database Setup =======================================================================================================
@@ -235,7 +259,6 @@ async def cleanup_postgres(app):
 
 # shutdown function ====================================================================================================
 async def shutdown(signal, loop):
-    """Cleanup tasks tied to the service's shutdown."""
     logging.info(f"Received exit signal {signal.name}...")
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
 
