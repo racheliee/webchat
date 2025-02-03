@@ -194,10 +194,6 @@ interface MessageProps {
   isCurrentUser: boolean;
 }
 
-// const loaderProp = ({ src }: { src: string }) => {
-//   return src;
-// }
-
 const MessageComponent = ({ message, isCurrentUser }: MessageProps) => (
   <div
     className={`flex flex-grow relative mx-4 mt-2 mb-3 w-full ${
@@ -218,7 +214,6 @@ const MessageComponent = ({ message, isCurrentUser }: MessageProps) => (
             src={message.avatar}
             alt={message.username}
             className="rounded-full"
-            // loader={loaderProp}
           />
         </a>
       </div>
