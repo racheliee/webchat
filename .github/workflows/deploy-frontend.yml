@@ -26,9 +26,13 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Docker image
-        run: docker build --platform linux/amd64 -t ${{ secrets.DOCKER_USERNAME }}/lablup-webchat:frontend .
-
+      - name: Build Docker image with env variables
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_WEBSOCKET_URL=${{ secrets.NEXT_PUBLIC_WEBSOCKET_URL }} \
+            --build-arg NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }} \
+            -t ${{ secrets.DOCKER_USERNAME }}/lablup-webchat:frontend .
+  
       - name: Push Docker image to Docker Hub
         run: docker push ${{ secrets.DOCKER_USERNAME }}/lablup-webchat:frontend
 

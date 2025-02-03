@@ -32,7 +32,7 @@ export const Chat = () => {
         // Fetch session data
         const res = await fetch(
           `${
-            process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"
+            process.env.NEXT_PUBLIC_BACKEND_URL
           }/auth/session`,
           {
             credentials: "include",
@@ -51,7 +51,7 @@ export const Chat = () => {
 
           // Initialize WebSocket
           websocketRef.current = new WebSocket(
-            process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:8080/ws"
+            process.env.NEXT_PUBLIC_WEBSOCKET_URL || ""
           );
 
           websocketRef.current.onopen = () => {
@@ -127,7 +127,7 @@ export const Chat = () => {
   };
 
   const handleSignOut = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/auth/signout`;
+    window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/signout`;
   }
 
   return (

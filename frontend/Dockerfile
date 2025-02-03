@@ -13,6 +13,14 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
+# Accept environment variables at build time
+ARG NEXT_PUBLIC_WEBSOCKET_URL
+ARG NEXT_PUBLIC_BACKEND_URL
+
+# Set environment variables for the app
+ENV NEXT_PUBLIC_WEBSOCKET_URL=$NEXT_PUBLIC_WEBSOCKET_URL
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
+
 # Build the Next.js application
 RUN npm run build
 
