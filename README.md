@@ -40,3 +40,12 @@ adev runserver app.py --host 0.0.0.0 --port 8080
 
 ## Deployment
 This webchat is deployed through Amazon Web Services (AWS). It currently does not have a domain name, but you can access it through the [following link](http://15.164.93.98:3000/)
+
+## Demo Images
+
+&nbsp;
+
+<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;">
+  <img src="./assets/image copy.png" width="550">
+  <img src="./assets/image.png" width="550">
+</div>
