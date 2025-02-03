@@ -43,9 +43,5 @@ This webchat is deployed through Amazon Web Services (AWS). It currently does no
 
 ## Demo Images
 
-&nbsp;
-
-<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;">
-  <img src="./assets/image copy.png" width="550">
-  <img src="./assets/image.png" width="550">
-</div>
+<img src="./assets/image copy.png" width="550">
+<img src="./assets/image.png" width="550">
