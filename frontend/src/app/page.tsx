@@ -4,7 +4,6 @@ import Image from "next/image";
 
 export default function Home() {
   const handleGithubLogin = () => {
-    console.log(`github login url: ${process.env.NEXT_PUBLIC_BACKEND_URL}`)
     window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/github`;
   };
 

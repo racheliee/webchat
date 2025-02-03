@@ -39,6 +39,7 @@ async def github_login(request):
         f"https://github.com/login/oauth/authorize?"
         f"client_id={GITHUB_CLIENT_ID}&redirect_uri={HOST}/auth/github/callback&scope=read:user user:email&state={state}"
     )
+    logger.info(f"Redirecting to GitHub OAuth: {github_auth_url}")
     return web.HTTPFound(github_auth_url)
 
 @routes.get("/auth/github/callback")
