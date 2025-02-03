@@ -26,10 +26,22 @@ export const Chat = () => {
   const [error, setError] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+
+  const fetchRecentMessages = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/messages`);
+      if (!res.ok) throw new Error("Failed to fetch recent messages");
+
+      const data = await res.json();
+      setMessages(data);
+    } catch (err) {
+      console.error("Error fetching recent messages:", err);
+    }
+  };
+
   useEffect(() => {
     const fetchSessionAndConnectWebSocket = async () => {
       try {
-        // Fetch session data
         const res = await fetch(
           `${
             process.env.NEXT_PUBLIC_BACKEND_URL
@@ -49,6 +61,8 @@ export const Chat = () => {
           setUser(data);
           setError(false);
 
+          await fetchRecentMessages();
+
           // Initialize WebSocket
           websocketRef.current = new WebSocket(
             process.env.NEXT_PUBLIC_WEBSOCKET_URL || ""
@@ -60,7 +74,6 @@ export const Chat = () => {
 
           websocketRef.current.onmessage = (event) => {
             const newMessage: Message = JSON.parse(event.data);
-            // Add new message to the END of the array
             setMessages((prev) => [...prev, newMessage]);
           };
 
@@ -68,7 +81,6 @@ export const Chat = () => {
             console.error("WebSocket error:", error);
           };
 
-          // Cleanup
           return () => websocketRef.current?.close();
         } else {
           throw new Error("User not authenticated");

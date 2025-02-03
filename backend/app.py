@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 async def github_login(request):
     session = await get_session(request)
     state = secrets.token_urlsafe(16)
-    session["oauth_state"] = state  # Store state in session
+    session["oauth_state"] = state  
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?"
         f"client_id={GITHUB_CLIENT_ID}&redirect_uri={HOST}/auth/github/callback&scope=read:user user:email&state={state}"
@@ -51,11 +51,10 @@ async def github_callback(request):
         logger.error("Invalid or missing state/code parameter for GitHub OAuth")
         return web.HTTPBadRequest(reason="Invalid or missing state/code parameter")
 
-    session.pop("oauth_state", None)  # Clear the state from the session
+    session.pop("oauth_state", None)  
 
     async with aiohttp.ClientSession() as http_session:
         try:
-            # Exchange code for access token
             token_url = "https://github.com/login/oauth/access_token"
             token_data = {
                 "client_id": GITHUB_CLIENT_ID,
@@ -83,10 +82,8 @@ async def github_callback(request):
 
             # logger.info(f"User data: {user_data}")
 
-            # Store user data in session
             session["user_data"] = user_data
 
-            # Redirect to frontend
             return web.HTTPFound(f"{FRONTEND_URL}/chat")
 
         except aiohttp.ClientError as e:
@@ -148,7 +145,6 @@ async def websocket_handler(request):
             if msg.type == web.WSMsgType.TEXT:
                 data = json.loads(msg.data)
 
-                # Save message to PostgreSQL
                 async with pg_pool.acquire() as conn:
                     data = json.loads(msg.data)
                     data["id"] = str(uuid.uuid4())
@@ -182,35 +178,23 @@ async def websocket_handler(request):
 
 # Fetch Historical Messages ==============================================================================================
 @routes.get("/api/messages")
-async def get_messages(request):
+async def get_recent_messages(request):
     pg_pool = request.app["pg_pool"]
-
-    # Default values for pagination
-    limit = int(request.query.get("limit", 20))  # Default limit to 20
-    page = int(request.query.get("page", 1))  # Default to page 1
-
-    # Calculate the offset
-    offset = (page - 1) * limit
-
     async with pg_pool.acquire() as conn:
-        # Fetch paginated messages
         rows = await conn.fetch(
-            "SELECT * FROM messages ORDER BY created_at ASC LIMIT $1 OFFSET $2",
-            limit, offset
+            "SELECT * FROM messages ORDER BY created_at DESC LIMIT 10"
         )
-
-        # Fetch the total count for additional metadata (optional)
-        total_count = await conn.fetchval("SELECT COUNT(*) FROM messages")
-
-        return web.json_response({
-            "data": [dict(row) for row in rows],
-            "meta": {
-                "page": page,
-                "limit": limit,
-                "total_count": total_count,
-                "total_pages": (total_count + limit - 1) // limit  # Calculate total pages
+        # Reverse for ordering
+        messages = [
+            {
+                **dict(row),
+                "id": str(row["id"]),  # uuid
+                "created_at": row["created_at"].isoformat(),
             }
-        })
+            for row in reversed(rows)
+        ]
+        return web.json_response(messages)
+
 
 
 # Database Setup =======================================================================================================
@@ -277,7 +261,6 @@ def create_app():
     app.on_startup.append(setup_postgres)
     app.on_cleanup.append(cleanup_postgres)
 
-    # set up cors
     cors = aiohttp_cors.setup(app, defaults={
         "*": aiohttp_cors.ResourceOptions(
             allow_credentials=True,
@@ -290,7 +273,6 @@ def create_app():
         cors.add(route)
     
     async def on_shutdown(app):
-        # Close all WebSocket connections
         for ws in connections:
             await ws.close(code=1001, message="Server shutdown")
 
@@ -302,7 +284,6 @@ def create_app():
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
 
-    # Handle signals for graceful shutdown
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(
             sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop))
